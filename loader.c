@@ -1,6 +1,7 @@
 #include "loader.h"
 #include <sys/mman.h>
 #include <errno.h>
+#include <string.h>
 
 
 /*
@@ -27,6 +28,21 @@
  * Returns 0 on success, or -1 if the file cannot be opened or mapped.
  */
 int loadimage_mmap(char* filename, struct image* image) {
+	size_t length = sizeof(struct image) + (size_t)image->width * image->height * sizeof(struct pixel);
+	int fd = open(filename, O_RDONLY);
+	if (fd == -1) {
+		return -1;
+	}
+
+	void *mapping = mmap(NULL, length, PROT_READ, MAP_PRIVATE, fd, 0);
+	if (mapping == MAP_FAILED) {
+		return -1;
+	}
+
+	*image = *(struct image *)mapping;
+	image->pixels = (struct pixel *)((char *)mapping + sizeof(struct image));
+
+	close(fd);
 	return 0;
 }
 
@@ -47,6 +63,36 @@ int loadimage_mmap(char* filename, struct image* image) {
  * A failed flush to disk is reported but still returns 0.
  */
 int saveimage_mmap(char* filename, struct image* image) {
+
+	// Calculate the total length of the memory mapping, including the image header and pixel data.
+	size_t length = sizeof(struct image) + (size_t)image->width * image->height * sizeof(struct pixel);
+	int fd = open(filename, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	
+	if (fd == -1) {
+		return -1;
+	}
+	
+	if (ftruncate(fd, length) == -1) {
+		close(fd);
+		return -1;
+	}
+
+	void *mapping = mmap(NULL, length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	if (mapping == MAP_FAILED) {
+		close(fd);
+		return -1;
+	}
+
+	struct image *mapped_image = mapping;
+	*mapped_image = *image;
+	mapped_image->pixels = (struct pixel *)((char *)mapping + sizeof(struct image));
+	memcpy(mapped_image->pixels, image->pixels, (size_t)image->width * image->height * sizeof(struct pixel));
+	if (msync(mapping, length, MS_SYNC) == -1) {
+		printf("msync failed\n");
+	}
+	munmap(mapping, length);
+
+	close(fd);
 	return 0;
 }
 
