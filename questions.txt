@@ -1,2 +1,4 @@
 (1) 404078592 bytes
-(2) 404,099,072 bytes
+(2) 404099072 bytes
+(3) The NOrmal process use around 404099072 bytes of memory and stay same for most of the execution. The mmap process shows  higher memory usage around 590000 (618659840 bytes) but finish much faster.
+(4) A minor page fault happens when a process tries to access a memory page that is not currently mapped to the process, but the page is already available in physical memory. The OS can handle it without reading from disk, so it is relatively fast. A major page fault happens when the needed page is not available in physical memory and the OS has to load it from disk. This is much slower because accessing disk is more slower than accessing RAM.
